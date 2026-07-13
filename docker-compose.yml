@@ -1,0 +1,11 @@
+# 单容器单 worker（ADR-0003）。data/ 挂载到宿主，持久化 SQLite/媒体/中间产物/导出/模型缓存。
+services:
+  app:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped

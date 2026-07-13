@@ -1,0 +1,12 @@
+# flake8 不读 pyproject.toml，配置放这里。
+# 检查脚本（scripts/checks/core_quality.py）只跑 critical 集合 E9,F63,F7,F82；
+# 手动 `uv run flake8` 时使用以下更宽松的整体配置。
+[flake8]
+max-line-length = 88
+extend-ignore = E203,W503
+exclude =
+    .venv,
+    __pycache__,
+    build,
+    dist,
+    .git

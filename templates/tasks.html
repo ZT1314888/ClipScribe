@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}任务列表 · 短视频文案系统{% endblock %}
+{% block content %}
+<div class="card">
+  <form method="get" action="/tasks" style="display:flex; gap:8px; align-items:center;">
+    <input type="text" name="q" value="{{ q }}" placeholder="按标题或链接搜索"
+           style="flex:1;" />
+    <select name="status" style="width:160px;">
+      <option value="">全部状态</option>
+      {% for s in statuses %}
+      <option value="{{ s.value }}" {% if status == s.value %}selected{% endif %}>
+        {{ s.value }}</option>
+      {% endfor %}
+    </select>
+    <button class="btn" type="submit">搜索</button>
+  </form>
+</div>
+<div class="card">
+  <table>
+    <thead>
+      <tr><th>标题/链接</th><th>输入</th><th>状态</th><th>创建</th><th>完成</th></tr>
+    </thead>
+    <tbody>
+      {% for t in tasks %}
+      <tr>
+        <td><a href="/tasks/{{ t.id }}">
+          {{ t.video_title or t.source_url or t.id }}</a>
+          {% if t.error_message %}<div class="muted">⚠ {{ t.error_message }}</div>{% endif %}
+        </td>
+        <td>{{ t.input_type.value }}</td>
+        <td><span class="tag {{ t.status.value }}">{{ t.status.value }}</span></td>
+        <td class="muted">{{ t.created_at.strftime('%m-%d %H:%M') }}</td>
+        <td class="muted">
+          {{ t.completed_at.strftime('%m-%d %H:%M') if t.completed_at else '-' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="5" class="muted">暂无任务</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

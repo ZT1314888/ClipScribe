@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}统计 · 短视频文案系统{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>使用统计</h2>
+  <p class="muted">每两周复盘一次，判断优先修稳定性、转写质量、改写质量还是体验。</p>
+  <div style="display:flex; gap:16px; flex-wrap:wrap;">
+    <div class="card" style="flex:1; min-width:160px; text-align:center;">
+      <div class="muted">任务总数</div>
+      <div style="font-size:32px; font-weight:600;">{{ stats.total_tasks }}</div>
+    </div>
+    <div class="card" style="flex:1; min-width:160px; text-align:center;">
+      <div class="muted">成功率</div>
+      <div style="font-size:32px; font-weight:600;">
+        {{ '%.0f' % (stats.success_rate * 100) }}%</div>
+    </div>
+    <div class="card" style="flex:1; min-width:160px; text-align:center;">
+      <div class="muted">平均耗时</div>
+      <div style="font-size:32px; font-weight:600;">
+        {% if stats.avg_duration_seconds is not none %}
+          {{ '%.0f' % stats.avg_duration_seconds }}s
+        {% else %}-{% endif %}</div>
+    </div>
+    <div class="card" style="flex:1; min-width:160px; text-align:center;">
+      <div class="muted">反馈好评率</div>
+      <div style="font-size:32px; font-weight:600;">
+        {% if stats.feedback_positive_rate is not none %}
+          {{ '%.0f' % (stats.feedback_positive_rate * 100) }}%
+        {% else %}-{% endif %}</div>
+    </div>
+  </div>
+</div>
+{% endblock %}

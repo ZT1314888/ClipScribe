@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% block title %}任务详情 · 短视频文案系统{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>{{ task.video_title or task.id }}</h2>
+  <p class="muted">
+    状态：<span class="tag {{ task.status.value }}">{{ task.status.value }}</span>
+    &nbsp;|&nbsp; 输入：{{ task.input_type.value }}
+    {% if task.source_url %}&nbsp;|&nbsp; 来源：{{ task.source_url }}{% endif %}
+    {% if task.author %}&nbsp;|&nbsp; 作者：{{ task.author }}{% endif %}
+  </p>
+  {% if task.error_message %}<div class="notice">⚠ {{ task.error_message }}</div>{% endif %}
+  <div style="display:flex; gap:8px; flex-wrap:wrap;">
+    <a class="btn secondary" href="/api/tasks/{{ task.id }}/export/md">导出 Markdown</a>
+    <a class="btn secondary" href="/api/tasks/{{ task.id }}/export/docx">导出 Docx</a>
+    <button class="btn secondary" onclick="retry(null)">整链重跑</button>
+  </div>
+</div>
+
+<div class="card">
+  <h3>转写稿（可编辑，下游优先使用修订稿）</h3>
+  {% set revised = arts.get(K.REVISED_TRANSCRIPT) %}
+  {% set raw = arts.get(K.RAW_TRANSCRIPT) %}
+  <textarea id="transcript">{{ (revised.text if revised else (raw.text if raw else '')) }}</textarea>
+  <div style="margin-top:8px; display:flex; gap:8px;">
+    <button class="btn" onclick="saveTranscript()">保存修订稿</button>
+    <button class="btn secondary" onclick="retry('cleaning')">用修订稿重跑清洗+改写</button>
+    <span id="t-msg" class="muted"></span>
+  </div>
+</div>
+
+{% macro section(art, title, retry_step) %}
+<div class="card">
+  <div style="display:flex; align-items:center;">
+    <h3 style="margin:0; flex:1;">{{ title }}</h3>
+    {% if retry_step %}
+    <button class="btn secondary" onclick="retry('{{ retry_step }}')">重跑此步</button>
+    {% endif %}
+  </div>
+  <pre style="white-space:pre-wrap; font-family:inherit; margin-top:12px;">{{ art.text if art else '（暂无）' }}</pre>
+</div>
+{% endmacro %}
+
+{{ section(arts.get(K.CLEANED), '清洗稿', 'cleaning') }}
+{{ section(arts.get(K.BREAKDOWN), '结构拆解', 'analyzing') }}
+
+<div class="card">
+  <div style="display:flex; align-items:center;">
+    <h3 style="margin:0; flex:1;">改写结果</h3>
+    <button class="btn secondary" onclick="retry('rewriting')">重跑改写</button>
+  </div>
+  {% for kind in rewrite_kinds %}
+  {% set art = arts.get(kind) %}
+  <div style="margin-top:16px; border-top:1px solid #eee; padding-top:12px;">
+    <div style="display:flex; align-items:center; gap:8px;">
+      <strong>{{ rewrite_labels[kind] }}</strong>
+      <button class="btn secondary" onclick="copyText('rw-{{ kind.value }}')">复制</button>
+      <button class="btn secondary" onclick="feedback('{{ kind.value }}','good')">👍 好用</button>
+      <button class="btn secondary" onclick="feedback('{{ kind.value }}','bad')">👎 不好用</button>
+      <span id="fb-{{ kind.value }}" class="muted"></span>
+    </div>
+    <pre id="rw-{{ kind.value }}" style="white-space:pre-wrap; font-family:inherit;">{{ art.text if art else '（暂无）' }}</pre>
+  </div>
+  {% endfor %}
+</div>
+
+<script>
+const TASK_ID = "{{ task.id }}";
+
+async function saveTranscript() {
+  const text = document.getElementById('transcript').value;
+  const res = await fetch(`/api/tasks/${TASK_ID}/transcript`, {
+    method: 'PUT', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({text})
+  });
+  document.getElementById('t-msg').textContent = res.ok ? '已保存' : '保存失败';
+}
+
+async function retry(step) {
+  const res = await fetch(`/api/tasks/${TASK_ID}/retry`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({step})
+  });
+  if (res.ok) { setTimeout(() => location.reload(), 1000); }
+  else { const j = await res.json().catch(()=>({})); alert(j.detail || '重试失败'); }
+}
+
+async function feedback(kind, verdict) {
+  const tags = verdict === 'bad' ? (prompt('原因标签（可选，逗号分隔）') || '') : '';
+  const res = await fetch(`/api/tasks/${TASK_ID}/feedback`, {
+    method: 'POST', headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({rewrite_kind: kind, verdict, reason_tags: tags})
+  });
+  document.getElementById('fb-' + kind).textContent = res.ok ? '已记录，谢谢' : '提交失败';
+}
+
+function copyText(id) {
+  const el = document.getElementById(id);
+  navigator.clipboard.writeText(el.textContent);
+}
+</script>
+{% endblock %}

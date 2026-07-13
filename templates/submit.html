@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}提交任务 · 短视频文案系统{% endblock %}
+{% block content %}
+<div class="card">
+  <h2>提交新任务</h2>
+  <div class="notice">
+    发布前请人工确认：核对事实、品牌信息、广告极限词、版权与平台规则。生成内容仅作内部创作参考。
+  </div>
+  <form id="submit-form">
+    <p><label>抖音链接（第一版留桩，暂请使用本地上传）</label>
+      <input type="text" name="source_url" placeholder="https://www.douyin.com/video/..." /></p>
+    <p><label>或上传本地视频/音频（兜底，推荐）</label>
+      <input type="file" name="file"
+             accept=".mp3,.mp4,.m4a,.wav,.webm,.mkv,.ogg,.flac,.mov,.avi" /></p>
+    <button class="btn" type="submit">开始处理</button>
+  </form>
+  <p id="result" class="muted"></p>
+</div>
+<script>
+document.getElementById('submit-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const data = new FormData(form);
+  // 去掉空值，避免后端把空字符串当链接
+  if (!data.get('source_url')) data.delete('source_url');
+  if (data.get('file') && !data.get('file').name) data.delete('file');
+  const res = await fetch('/api/tasks', { method: 'POST', body: data });
+  const out = document.getElementById('result');
+  if (res.ok) {
+    const j = await res.json();
+    out.innerHTML = '已提交，任务 ID：<a href="/tasks/' + j.task_id + '">' + j.task_id + '</a>';
+    setTimeout(() => { window.location = '/tasks/' + j.task_id; }, 800);
+  } else {
+    const j = await res.json().catch(() => ({detail: '提交失败'}));
+    out.textContent = '错误：' + (j.detail || res.status);
+  }
+});
+</script>
+{% endblock %}

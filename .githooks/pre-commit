@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+#
+# Git pre-commit hook —— 对暂存的 Python 文件运行共享质量检查。
+#
+# 与 Claude Code 的 post-write hook 调用同一份逻辑
+# (scripts/checks/core_quality.py)，保证 Claude / Codex / 命令行提交
+# 三条路径行为一致。
+#
+# 启用方式（每个克隆执行一次）：
+#     git config core.hooksPath .githooks
+#
+# critical flake8 错误（E9,F63,F7,F82）会以退出码 1 阻断提交。
+
+set -euo pipefail
+
+# 收集暂存的 .py 文件（排除已删除的）
+mapfile -t staged_py < <(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)
+
+if [ ${#staged_py[@]} -eq 0 ]; then
+    exit 0
+fi
+
+echo "pre-commit: 检查 ${#staged_py[@]} 个 Python 文件..."
+
+if ! command -v uv >/dev/null 2>&1; then
+    echo "pre-commit: 未找到 uv，跳过质量检查（请安装 uv 并执行 uv sync）。" >&2
+    exit 0
+fi
+
+# 调用共享核心；critical 错误时脚本返回非零
+if uv run python scripts/checks/core_quality.py "${staged_py[@]}"; then
+    exit 0
+else
+    echo "" >&2
+    echo "pre-commit: 存在 critical 错误，提交被阻断。修复后重试，或用 --no-verify 跳过。" >&2
+    exit 1
+fi

@@ -1,0 +1,38 @@
+{
+  "permissions": {
+    "defaultMode": "default",
+    "allow": [
+      "Bash(python:*)",
+      "Bash(source:*)",
+      "Bash(alembic:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker:*)",
+      "Bash(black:*)",
+      "Bash(isort:*)",
+      "Bash(flake8:*)",
+      "Bash(git:*)",
+      "Bash(celery:*)",
+      "Bash(pytest:*)",
+      "Bash(pip:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)",
+      "Bash(sed:*)",
+      "Bash(grep:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Read",
+      "WebFetch",
+      "WebSearch",
+      "Edit",
+      "Write"
+    ],
+    "ask": [
+      "Bash(rm:*)"
+    ],
+    "deny": [
+      "Bash(rm -rf:*)"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": []
+}
