@@ -43,8 +43,10 @@ class Settings(BaseSettings):
     # ---- 数据目录 ----
     data_dir: Path = Path("data")
 
-    # ---- 抖音下载（本阶段留桩，Cookie 从环境注入，不在 UI 填） ----
+    # ---- 抖音下载（Cookie 从环境注入，不在 UI 填） ----
     douyin_cookie: str = ""
+    mock_douyin: bool = True  # 无 Cookie/离线时走占位视频，保证端到端可验收
+    douyin_download_timeout: int = 120  # 解析+下载整体超时（秒）
 
     # ---- 上传 ----
     upload_max_mb: int = 200

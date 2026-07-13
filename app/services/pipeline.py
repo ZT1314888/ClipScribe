@@ -82,7 +82,7 @@ def _effective_transcript(session: Session, task_id: str) -> str:
 def _step_download(session: Session, task: Task) -> None:
     if task.input_type == InputType.UPLOAD:
         return  # 上传兜底：跳过下载
-    result = downloader.download(task.source_url or "")
+    result = downloader.download(task.source_url or "", task.id)
     task.video_title = result.video_title or task.video_title
     task.author = result.author or task.author
     task.collected_at = utcnow()

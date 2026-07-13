@@ -4,7 +4,7 @@
 
 方案文档见 `docs/`（含补充计划与 `docs/adr/`）。领域术语见 [CONTEXT.md](./CONTEXT.md)。工程与协作规范见 **[AGENTS.md](./AGENTS.md)**。
 
-> 第一版为**垂直骨架 + 本地上传兜底链路**：跑通 `上传音视频 → 抽音频 → 转写 → 清洗 → 结构拆解 → 改写 → 导出` 全流程。抖音链接下载留桩（`app/services/downloader.py`），待后续接入。
+> 第一版跑通 `抖音链接/上传音视频 → 抽音频 → 转写 → 清洗 → 结构拆解 → 改写 → 导出` 全流程。抖音下载解析委托开源库 `douyin-tiktok-scraper`，适配层在 `app/services/downloader.py`；真实下载需配置 Cookie，详见 [docs/douyin-download.md](./docs/douyin-download.md)。无 Cookie/离线时用本地上传兜底。
 
 ## 环境准备
 
@@ -16,12 +16,12 @@ cp .env.example .env    # 按需修改：口令、LLM、mock 开关等
 uv run python main.py   # 启动服务，默认 http://localhost:8000
 ```
 
-默认 `MOCK_LLM=true` / `MOCK_TRANSCRIBE=true`，无 GPU / 无 API Key 也能端到端跑通（产出占位文案）。
+默认 `MOCK_LLM=true` / `MOCK_TRANSCRIBE=true` / `MOCK_DOUYIN=true`，无 GPU / 无 API Key / 无 Cookie 也能端到端跑通（产出占位内容）。
 
 ## 使用
 
 1. 浏览器打开 `http://localhost:8000`，用 `.env` 中的 `SHARED_PASSPHRASE` 登录。
-2. 提交页：上传本地视频/音频（推荐）。抖音链接第一版会提示改用本地上传。
+2. 提交页：粘贴抖音单条公开视频链接（需配 Cookie），或上传本地视频/音频兜底。
 3. 任务列表页：时间倒序查看，按标题/链接/状态搜索。
 4. 任务详情页：编辑转写稿（下游优先用修订稿）、查看清洗/拆解/三类改写、按步重试、导出 Markdown/Docx、一键复制、对改写结果反馈。
 5. 统计页：任务总数、成功率、平均耗时、反馈好评率。
@@ -37,6 +37,15 @@ LLM_API_KEY=sk-...              # OpenAI-compatible
 LLM_BASE_URL=https://api.openai.com/v1
 LLM_MODEL=gpt-4o-mini
 ```
+
+## 接入真实抖音下载
+
+```bash
+MOCK_DOUYIN=false               # 关掉占位视频，走真实解析+下载
+DOUYIN_COOKIE=<有效 cookie>      # 环境注入，不在 UI 填、不进镜像
+```
+
+能力边界（仅单条公开视频）、Cookie 获取方式与真机联调 checklist 见 [docs/douyin-download.md](./docs/douyin-download.md)。
 
 ## Docker 部署（单容器单 worker，ADR-0003）
 
