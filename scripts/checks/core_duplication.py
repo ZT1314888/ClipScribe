@@ -402,6 +402,10 @@ def analyze_file(
     返回 (duplications, violations, file_role)。
     供各适配器（Claude hook / CLI）复用。
     """
+    # vendored 第三方代码（douyin_vendor）不受本项目重复/架构规则约束：
+    # 它是上游 douyin-downloader 的原样抽取，同步自上游而非本仓编写。
+    if "/douyin_vendor/" in file_path.replace("\\", "/"):
+        return [], [], detect_file_role(file_path)
     duplications = detect_code_duplication(file_path, content, project_dir)
     violations = validate_architecture(file_path, content)
     role = detect_file_role(file_path)

@@ -6,9 +6,10 @@ readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "aiofiles>=25.1.0",
-    "douyin-tiktok-scraper>=1.2.9",
+    "aiohttp>=3.14.1",
     "fastapi>=0.139.0",
     "faster-whisper>=1.2.1",
+    "gmssl>=3.2.2",
     "httpx>=0.28.1",
     "itsdangerous>=2.2.0",
     "jinja2>=3.1.6",
@@ -16,6 +17,7 @@ dependencies = [
     "pydantic-settings>=2.14.2",
     "python-docx>=1.2.0",
     "python-multipart>=0.0.32",
+    "pyyaml>=6.0.3",
     "sqlalchemy>=2.0.51",
     "uvicorn[standard]>=0.51.0",
 ]
@@ -41,10 +43,6 @@ line_length = 88
 # 让测试能 import app.*（项目以 app.main:app 运行，根目录即包根）
 pythonpath = ["."]
 testpaths = ["tests"]
-filterwarnings = [
-    # 第三方库 douyin-tiktok-scraper 的正则转义告警，非本项目代码
-    "ignore::SyntaxWarning",
-]
 
 [tool.flake8]
 # flake8 不原生读 pyproject，此处仅作记录；实际以 .flake8 / setup.cfg 为准。

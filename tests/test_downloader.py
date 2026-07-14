@@ -64,64 +64,93 @@ def test_mock_branch_ffmpeg_failure(monkeypatch):
         downloader.download("https://v.douyin.com/abc/", "task-mock-fail")
 
 
-# ---- _extract_meta()：解析结果 → 字段映射 ----
+# ---- _extract_meta()：aweme_detail → 字段映射 ----
 
 
-def _ok_payload():
+def _ok_detail():
+    """vendored get_video_detail 返回的 aweme_detail 形状（节选）。"""
     return {
-        "status": "success",
-        "type": "video",
+        "aweme_id": "7658630307536506162",
         "desc": "  标题文案  ",
         "author": {"nickname": "  作者昵称 "},
-        "video_data": {
-            "nwm_video_url": "https://cdn/normal.mp4",
-            "nwm_video_url_HQ": "https://cdn/hq.mp4",
-            "wm_video_url": "https://cdn/wm.mp4",
+        "video": {
+            "play_addr": {"url_list": ["https://cdn/play.mp4"]},
+            "play_addr_h264": {"url_list": ["https://cdn/h264.mp4"]},
+            "download_addr": {"url_list": ["https://cdn/download.mp4"]},
+            "bit_rate": [
+                {"play_addr": {"url_list": ["https://cdn/bitrate.mp4"]}},
+            ],
         },
     }
 
 
-def test_extract_meta_prefers_hq_and_trims():
-    url, title, author = downloader._extract_meta(_ok_payload())
-    assert url == "https://cdn/hq.mp4"
+def test_extract_meta_prefers_play_addr_and_trims():
+    url, title, author = downloader._extract_meta(_ok_detail())
+    assert url == "https://cdn/play.mp4"
     assert title == "标题文案"
     assert author == "作者昵称"
 
 
-def test_extract_meta_falls_back_to_normal_url():
-    data = _ok_payload()
-    data["video_data"].pop("nwm_video_url_HQ")
-    url, _, _ = downloader._extract_meta(data)
-    assert url == "https://cdn/normal.mp4"
+def test_extract_meta_falls_back_to_h264():
+    detail = _ok_detail()
+    detail["video"].pop("play_addr")
+    url, _, _ = downloader._extract_meta(detail)
+    assert url == "https://cdn/h264.mp4"
 
 
-def test_extract_meta_status_failed():
-    with pytest.raises(DownloadError, match="解析未成功"):
-        downloader._extract_meta({"status": "failed", "message": "私密视频"})
+def test_extract_meta_falls_back_to_download_addr():
+    detail = _ok_detail()
+    detail["video"].pop("play_addr")
+    detail["video"].pop("play_addr_h264")
+    url, _, _ = downloader._extract_meta(detail)
+    assert url == "https://cdn/download.mp4"
 
 
-def test_extract_meta_image_type_rejected():
-    with pytest.raises(DownloadError, match="仅支持单条视频"):
-        downloader._extract_meta({"status": "success", "type": "image"})
+def test_extract_meta_falls_back_to_bit_rate():
+    detail = _ok_detail()
+    detail["video"].pop("play_addr")
+    detail["video"].pop("play_addr_h264")
+    detail["video"].pop("download_addr")
+    url, _, _ = downloader._extract_meta(detail)
+    assert url == "https://cdn/bitrate.mp4"
 
 
-def test_extract_meta_no_video_url():
-    data = _ok_payload()
-    data["video_data"] = {}
-    with pytest.raises(DownloadError, match="未取到可下载的视频地址"):
-        downloader._extract_meta(data)
+def test_extract_meta_empty_detail_rejected():
+    with pytest.raises(DownloadError, match="未取到视频信息"):
+        downloader._extract_meta({})
 
 
 def test_extract_meta_non_dict():
-    with pytest.raises(DownloadError):
+    with pytest.raises(DownloadError, match="未取到视频信息"):
         downloader._extract_meta(None)  # type: ignore[arg-type]
 
 
-def test_extract_meta_author_as_string():
-    data = _ok_payload()
-    data["author"] = "纯字符串作者"
-    _, _, author = downloader._extract_meta(data)
-    assert author == "纯字符串作者"
+def test_extract_meta_image_post_rejected():
+    detail = _ok_detail()
+    detail["image_post_info"] = {"images": [{"url": "x"}]}
+    with pytest.raises(DownloadError, match="图集"):
+        downloader._extract_meta(detail)
+
+
+def test_extract_meta_no_video_data_rejected():
+    detail = _ok_detail()
+    detail.pop("video")
+    with pytest.raises(DownloadError, match="不含视频数据"):
+        downloader._extract_meta(detail)
+
+
+def test_extract_meta_no_video_url():
+    detail = _ok_detail()
+    detail["video"] = {"play_addr": {"url_list": []}}
+    with pytest.raises(DownloadError, match="未取到可下载的视频地址"):
+        downloader._extract_meta(detail)
+
+
+def test_extract_meta_title_missing_ok():
+    detail = _ok_detail()
+    detail.pop("desc")
+    _, title, _ = downloader._extract_meta(detail)
+    assert title is None
 
 
 # ---- _real_download()：串起解析 + 落盘 ----
@@ -132,7 +161,7 @@ def test_real_download_maps_fields_and_writes(monkeypatch):
 
     async def fake_parse(url, cookie):
         assert url == "https://v.douyin.com/real/"
-        return _ok_payload()
+        return _ok_detail()
 
     captured = {}
 
@@ -150,8 +179,8 @@ def test_real_download_maps_fields_and_writes(monkeypatch):
     assert result.author == "作者昵称"
     assert result.video_path.endswith("video.mp4")
     assert "task-real" in result.video_path
-    # 下载的是 HQ 无水印地址
-    assert captured["video_url"] == "https://cdn/hq.mp4"
+    # 下载的是 play_addr 无水印地址
+    assert captured["video_url"] == "https://cdn/play.mp4"
 
 
 def test_real_download_propagates_parse_error(monkeypatch):
@@ -165,66 +194,116 @@ def test_real_download_propagates_parse_error(monkeypatch):
         downloader.download("https://v.douyin.com/x/", "task-err")
 
 
-# ---- _parse()：Cookie 透传 ----
+# ---- _parse()：链接解析 + cookie 转 dict + vendored 调用 ----
 
 
-def test_parse_injects_cookie_into_headers(monkeypatch):
+class _FakeClient:
+    """替身 DouyinAPIClient：记录构造它的 cookies，返回预置 detail。"""
+
+    last_cookies: dict = {}
+    detail_to_return: dict = {}
+    raise_exc: Exception | None = None
+
+    def __init__(self, cookies, proxy=None):
+        type(self).last_cookies = cookies
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *a):
+        return False
+
+    async def get_video_detail(self, aweme_id):
+        type(self).last_aweme_id = aweme_id
+        if type(self).raise_exc:
+            raise type(self).raise_exc
+        return type(self).detail_to_return
+
+
+def _patch_vendor(monkeypatch, detail=None, raise_exc=None):
+    """把 downloader 里 import 的 vendored 符号替换为可控替身。"""
+    import app.services.douyin_vendor as vendor
+
+    _FakeClient.detail_to_return = detail if detail is not None else _ok_detail()
+    _FakeClient.raise_exc = raise_exc
+    monkeypatch.setattr(vendor, "DouyinAPIClient", _FakeClient)
+
+
+def test_parse_resolves_id_and_passes_cookie(monkeypatch):
     import asyncio
 
-    seen = {}
+    _patch_vendor(monkeypatch)
 
-    class FakeScraper:
-        def __init__(self):
-            self.douyin_api_headers = {}
+    # 不联网：短链解析直接返回原 url（本例用长链，不触发重定向）
+    async def fake_resolve(url):
+        return url
 
-        async def hybrid_parsing(self, url):
-            seen["cookie"] = self.douyin_api_headers.get("Cookie")
-            seen["url"] = url
-            return _ok_payload()
+    monkeypatch.setattr(downloader, "_resolve_share_url", fake_resolve)
 
-    import douyin_tiktok_scraper.scraper as scraper_mod
+    detail = asyncio.run(
+        downloader._parse(
+            "https://www.douyin.com/video/7658630307536506162",
+            "ttwid=abc; sessionid=xyz",
+        )
+    )
+    assert detail["aweme_id"] == "7658630307536506162"
+    assert _FakeClient.last_aweme_id == "7658630307536506162"
+    # cookie 头被转成 dict 传入
+    assert _FakeClient.last_cookies["ttwid"] == "abc"
+    assert _FakeClient.last_cookies["sessionid"] == "xyz"
+    # 预置了占位 msToken，避免 vendored 层联网补 token
+    assert "msToken" in _FakeClient.last_cookies
 
-    monkeypatch.setattr(scraper_mod, "Scraper", FakeScraper)
 
-    asyncio.run(downloader._parse("https://v.douyin.com/c/", "sessionid=abc123"))
-    assert seen["cookie"] == "sessionid=abc123"
-    assert seen["url"] == "https://v.douyin.com/c/"
-
-
-def test_parse_no_cookie_when_empty(monkeypatch):
+def test_parse_modal_id_link(monkeypatch):
     import asyncio
 
-    seen = {}
+    _patch_vendor(monkeypatch)
 
-    class FakeScraper:
-        def __init__(self):
-            self.douyin_api_headers = {}
+    async def fake_resolve(url):
+        return url
 
-        async def hybrid_parsing(self, url):
-            seen["has_cookie"] = "Cookie" in self.douyin_api_headers
-            return _ok_payload()
+    monkeypatch.setattr(downloader, "_resolve_share_url", fake_resolve)
 
-    import douyin_tiktok_scraper.scraper as scraper_mod
-
-    monkeypatch.setattr(scraper_mod, "Scraper", FakeScraper)
-
-    asyncio.run(downloader._parse("https://v.douyin.com/c/", ""))
-    assert seen["has_cookie"] is False
+    detail = asyncio.run(
+        downloader._parse(
+            "https://www.douyin.com/jingxuan?modal_id=7658630307536506162", ""
+        )
+    )
+    assert detail["aweme_id"] == "7658630307536506162"
+    assert _FakeClient.last_aweme_id == "7658630307536506162"
 
 
-def test_parse_wraps_library_exception(monkeypatch):
+def test_parse_unresolvable_link_raises(monkeypatch):
     import asyncio
 
-    class FakeScraper:
-        def __init__(self):
-            self.douyin_api_headers = {}
+    _patch_vendor(monkeypatch)
 
-        async def hybrid_parsing(self, url):
-            raise ValueError("库内部炸了")
+    async def fake_resolve(url):
+        return url
 
-    import douyin_tiktok_scraper.scraper as scraper_mod
+    monkeypatch.setattr(downloader, "_resolve_share_url", fake_resolve)
 
-    monkeypatch.setattr(scraper_mod, "Scraper", FakeScraper)
+    # 主页链接解析不出 aweme_id
+    with pytest.raises(DownloadError, match="仅支持单条视频"):
+        asyncio.run(
+            downloader._parse("https://www.douyin.com/user/MS4wLjABAAAA", "")
+        )
+
+
+def test_parse_wraps_client_exception(monkeypatch):
+    import asyncio
+
+    _patch_vendor(monkeypatch, raise_exc=ValueError("vendored 层炸了"))
+
+    async def fake_resolve(url):
+        return url
+
+    monkeypatch.setattr(downloader, "_resolve_share_url", fake_resolve)
 
     with pytest.raises(DownloadError, match="抖音解析失败"):
-        asyncio.run(downloader._parse("https://v.douyin.com/c/", ""))
+        asyncio.run(
+            downloader._parse(
+                "https://www.douyin.com/video/7658630307536506162", ""
+            )
+        )

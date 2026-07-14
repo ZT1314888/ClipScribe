@@ -45,6 +45,9 @@ EXCLUDE_PATTERNS = [
     "/__pycache__/",
     "/.pytest_cache/",
     "/node_modules/",
+    # vendored 第三方代码（douyin-downloader 的 API 层），不受本项目门禁约束：
+    # 保持与上游一致以便同步，不该被我们的 black/isort/flake8 改写或阻断。
+    "/douyin_vendor/",
 ]
 
 
