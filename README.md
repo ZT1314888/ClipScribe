@@ -2,9 +2,9 @@
 
 团队内部工具：把抖音单条公开视频链接（或本地上传的音视频）转成转写稿、清洗稿、结构拆解与改写版本，仅作**内部创作参考**。
 
-方案文档见 `docs/`（含补充计划与 `docs/adr/`）。领域术语见 [CONTEXT.md](./CONTEXT.md)。工程与协作规范见 **[AGENTS.md](./AGENTS.md)**。
+方案文档见 `docs/`（含补充计划与 `docs/adr/`）；项目进度速览见 [docs/progress/](./docs/progress/)。领域术语见 [CONTEXT.md](./CONTEXT.md)。工程与协作规范见 **[AGENTS.md](./AGENTS.md)**。
 
-> 第一版跑通 `抖音链接/上传音视频 → 抽音频 → 转写 → 清洗 → 结构拆解 → 改写 → 导出` 全流程。抖音下载解析委托开源库 `douyin-tiktok-scraper`，适配层在 `app/services/downloader.py`；真实下载需配置 Cookie，详见 [docs/douyin-download.md](./docs/douyin-download.md)。无 Cookie/离线时用本地上传兜底。
+> 第一版跑通 `抖音链接/上传音视频 → 抽音频 → 转写 → 清洗 → 结构拆解 → 改写 → 导出` 全流程。抖音下载解析由 vendored 的 `douyin-downloader` API 层承担（`app/services/douyin_vendor/`），适配层在 `app/services/downloader.py`；真实下载需配置 Cookie，详见 [docs/douyin-download.md](./docs/douyin-download.md)。无 Cookie/离线时用本地上传兜底。
 
 ## 环境准备
 
@@ -73,17 +73,19 @@ uv run python scripts/checks/core_quality.py path/to/file.py
 ## 目录
 
 ```
+main.py           进程入口（uvicorn 装配 + lifespan：建表/自愈/清理/启动 worker）
 app/              应用代码
   config.py       ★集中读环境变量（唯一处）
-  main.py         FastAPI 装配 + lifespan（建表/自愈/清理/启动 worker）
+  db.py           SQLAlchemy engine / session
   api/            路由：auth / tasks / feedback / stats / pages(Jinja2)
-  services/       pipeline / downloader(桩) / audio / transcriber / llm / text_pipeline / exporter / retention
+  schemas/        Pydantic 请求/响应模型
+  services/       pipeline / downloader / audio / transcriber / llm / text_pipeline / exporter / retention
+  services/douyin_vendor/  vendored douyin-downloader API 层（a_bogus 签名，见 UPSTREAM.md）
   worker/         单 worker 串行执行器
   models/         Task / Artifact / Feedback（SQLite）
   core/           security / middleware / paths / timeutil / lifecycle
 templates/        Jinja2 页面
-static/           上游前端（提交页可复用）
 scripts/checks/   共享检查核心（工具无关，单一事实源）
-docs/             方案、补充计划、ADR
+docs/             方案、补充计划、ADR、进度记录（progress/）
 data/             运行期数据（不提交 Git）
 ```

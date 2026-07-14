@@ -212,7 +212,9 @@ def _placeholder_ms_token() -> str:
     import random
     import string
 
-    body = "".join(random.choice(string.ascii_letters + string.digits) for _ in range(182))
+    body = "".join(
+        random.choice(string.ascii_letters + string.digits) for _ in range(182)
+    )
     return body + "=="
 
 

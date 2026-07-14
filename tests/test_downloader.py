@@ -286,9 +286,7 @@ def test_parse_unresolvable_link_raises(monkeypatch):
 
     # 主页链接解析不出 aweme_id
     with pytest.raises(DownloadError, match="仅支持单条视频"):
-        asyncio.run(
-            downloader._parse("https://www.douyin.com/user/MS4wLjABAAAA", "")
-        )
+        asyncio.run(downloader._parse("https://www.douyin.com/user/MS4wLjABAAAA", ""))
 
 
 def test_parse_wraps_client_exception(monkeypatch):
@@ -303,7 +301,5 @@ def test_parse_wraps_client_exception(monkeypatch):
 
     with pytest.raises(DownloadError, match="抖音解析失败"):
         asyncio.run(
-            downloader._parse(
-                "https://www.douyin.com/video/7658630307536506162", ""
-            )
+            downloader._parse("https://www.douyin.com/video/7658630307536506162", "")
         )
